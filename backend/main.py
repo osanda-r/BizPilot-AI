@@ -1,4 +1,5 @@
 
+import logging
 import os
 from pathlib import Path
 
@@ -9,6 +10,8 @@ from openai import AsyncOpenAI, OpenAIError
 from pydantic import BaseModel, Field
 
 load_dotenv(Path(__file__).with_name(".env"))
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="AI Business Agent")
 
@@ -79,6 +82,7 @@ async def chat(request: ChatRequest):
         return {"reply": reply or "No response generated."}
 
     except OpenAIError:
+        logger.exception("Groq API request failed")
         raise HTTPException(
             status_code=502,
             detail="Groq API request failed"
