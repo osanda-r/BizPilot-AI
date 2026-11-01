@@ -1,0 +1,5 @@
+-r requirements.txt
+anyio==4.15.1
+httpx2==2.16.0
+pytest==9.0.2
+ruff==0.15.0
