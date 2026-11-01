@@ -1,34 +1,19 @@
 
-:root {
-  font-family: "DM Sans", Arial, sans-serif;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
 * {
   box-sizing: border-box;
 }
 
-html {
-  min-width: 320px;
-  min-height: 100%;
-}
-
 body {
-  min-width: 320px;
-  min-height: 100vh;
   margin: 0;
+  font-family: Inter, "Segoe UI", Arial, sans-serif;
+  background: #0b1120;
+  color: #f8fafc;
 }
 
-button:focus-visible,
-a:focus-visible {
-  outline: 3px solid #a79bff;
-  outline-offset: 3px;
+button, input {
+  font: inherit;
 }
 
-::selection {
-  background: #ded8ff;
-  color: #28204e;
+button {
+  cursor: pointer;
 }
