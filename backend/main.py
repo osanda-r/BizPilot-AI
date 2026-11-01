@@ -1,105 +1,85 @@
 
-from fastapi import FastAPI
+import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from datetime import datetime, timezone
+from openai import AsyncOpenAI, OpenAIError
+from pydantic import BaseModel, Field
 
-app = FastAPI(
-    title="AI Business Agent API",
-    version="1.0.0",
-    description="API for an AI-powered business automation platform",
-)
+load_dotenv(Path(__file__).with_name(".env"))
 
-# Allow requests from the local React development server.
+app = FastAPI(title="AI Business Agent")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=["http://localhost:5173"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
 )
 
+api_key = os.getenv("GROQ_API_KEY")
 
-@app.get("/")
-def home():
-    return {
-        "message": "AI Business Agent API is running"
-    }
+client = AsyncOpenAI(
+    api_key=api_key,
+    base_url="https://api.groq.com/openai/v1",
+) if api_key else None
 
+SYSTEM_PROMPT = """
+You are a professional AI Business Assistant.
 
-@app.get("/api/health")
-def health_check():
-    return {
-        "status": "healthy",
-        "service": "AI Business Agent API",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-    }
+You help small businesses with:
+- Customer support
+- Business questions
+- Writing professional replies
+- Summarizing customer messages
+- Suggesting business tasks
 
+Never invent order information or claim
+to have completed actions you haven't done.
+"""
 
-@app.get("/api/dashboard")
-def get_dashboard():
-    # Sample data for the first dashboard version.
-    # We will replace this with database data later.
-    return {
-        "stats": {
-            "total_tasks": 24,
-            "completed_tasks": 16,
-            "pending_tasks": 8,
-            "messages_processed": 128,
-        },
-        "tasks": [
-            {
-                "id": 1,
-                "title": "Review new customer inquiry",
-                "category": "Customer Support",
-                "status": "Pending",
-                "priority": "High",
-            },
-            {
-                "id": 2,
-                "title": "Prepare appointment summary",
-                "category": "Appointments",
-                "status": "In Progress",
-                "priority": "Medium",
-            },
-            {
-                "id": 3,
-                "title": "Organize order information",
-                "category": "Orders",
-                "status": "Completed",
-                "priority": "Low",
-            },
-            {
-                "id": 4,
-                "title": "Draft customer follow-up",
-                "category": "Communication",
-                "status": "Pending",
-                "priority": "Medium",
-            },
-        ],
-        "messages": [
-            {
-                "id": 1,
-                "customer": "Amelia Perera",
-                "subject": "Appointment booking",
-                "time": "2 min ago",
-                "status": "Needs review",
-            },
-            {
-                "id": 2,
-                "customer": "Daniel Silva",
-                "subject": "Product inquiry",
-                "time": "18 min ago",
-                "status": "Draft ready",
-            },
-            {
-                "id": 3,
-                "customer": "Sarah Fernando",
-                "subject": "Order information",
-                "time": "35 min ago",
-                "status": "Needs review",
-            },
-        ],
-    }
+class ChatRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=4000)
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
+@app.post("/api/chat")
+async def chat(request: ChatRequest):
+    if client is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Groq API key is not configured"
+        )
+
+    try:
+        completion = await client.chat.completions.create(
+            model=os.getenv(
+                "GROQ_MODEL",
+                "llama-3.3-70b-versatile"
+            ),
+            messages=[
+                {
+                    "role": "system",
+                    "content": SYSTEM_PROMPT
+                },
+                {
+                    "role": "user",
+                    "content": request.message
+                }
+            ],
+            max_tokens=500,
+        )
+
+        reply = completion.choices[0].message.content
+
+        return {"reply": reply or "No response generated."}
+
+    except OpenAIError:
+        raise HTTPException(
+            status_code=502,
+            detail="Groq API request failed"
+        )
